@@ -3,13 +3,13 @@
 TILE Tetravex::get_tile(int i, int j)
 {
     assert(i * size + j < size * size);
-    return board[i * size + j];
+    return board[movements[i * size + j]];
 }
 
 TILE Tetravex::get_tile(int pos)
 {
     assert(pos < size * size);
-    return board[pos];
+    return board[movements[pos]];
 }
 
 void Tetravex::set_tile(int i, int j, TILE tile)
@@ -22,6 +22,18 @@ void Tetravex::set_tile(int pos, TILE tile)
 {
     assert(pos < size * size);
     board[pos] = tile;
+}
+
+void Tetravex::set_movement(int i, int j, int value)
+{
+    assert(i * size + j < size * size);
+    movements[i * size + j] = value;
+}
+
+void Tetravex::set_movement(int pos, int value)
+{
+    assert(pos < size * size);
+    movements[pos] = value;
 }
 
 void Tetravex::draw_simple_board()
@@ -48,21 +60,24 @@ void Tetravex::draw_board()
     for (int i = 0; i < size; i++)
     {
         printf("|");
-        for (int j = 0; j < size; j++) {
+        for (int j = 0; j < size; j++)
+        {
             TILE tile = get_tile(i, j);
             printf("  %d  |", tile.n);
         }
         printf("\n");
 
         printf("|");
-        for (int j = 0; j < size; j++) {
+        for (int j = 0; j < size; j++)
+        {
             TILE tile = get_tile(i, j);
             printf(" %d %d |", tile.w, tile.e);
         }
         printf("\n");
 
         printf("|");
-        for (int j = 0; j < size; j++) {
+        for (int j = 0; j < size; j++)
+        {
             TILE tile = get_tile(i, j);
             printf("  %d  |", tile.s);
         }
@@ -75,7 +90,7 @@ void Tetravex::draw_board()
     }
 }
 
-int Tetravex::load_file(const char* file_path)
+bool Tetravex::load_file(const char* file_path)
 {
     std::ifstream file;
     file.open(file_path);
@@ -88,7 +103,8 @@ int Tetravex::load_file(const char* file_path)
         {
             if (line.length() == 0)
                 continue;
-            try {
+            try
+            {
 
                 TILE tile = {(unsigned char)std::stoul(line.substr(0,1)),
                              (unsigned char)std::stoul(line.substr(1,1)),
@@ -97,46 +113,69 @@ int Tetravex::load_file(const char* file_path)
                              line.find("@") != std::string::npos};
                 set_tile(pos, tile);
             }
-            catch(...){
+            catch(...)
+            {
                 std::cerr << "Couldn't load file: " << file_path << std::endl;
-                return 1;
+                return false;
             }
             pos++;
         }
+
         double sr = sqrt(pos);
         if (sr - floor(sr) != 0) {
             std::cerr << "The board doesn't have size * size lines.. " << std::endl;
-            return 1;
+            return false;
         }
         size = (int)sr;
-        return 0;
+
+        for (int i = 0; i < size * size; i++)
+            movements[i] = i;
+
+        return true;
     }
 
     std::cerr << "Couldn't open file: " << file_path << std::endl;
     return 1;
 }
 
-bool allowed_horizontal(TILE t1, TILE t2) {
+bool allowed_horizontal(TILE t1, TILE t2)
+{
     return t1.e == t2.w;
 }
 
-bool allowed_vertical(TILE t1, TILE t2) {
+bool allowed_vertical(TILE t1, TILE t2)
+{
     return t1.s == t2.n;
 }
 
-bool Tetravex::check_board() {
+bool Tetravex::check_board()
+{
+    // Check movements uniqueness
+    std::set<int> movements_values;
+    for (int i=0; i < size * size; i++)
+    {
+        movements_values.insert(movements[i]);
+    }
+    if (movements_values.size() != size * size)
+        return false;
+
+    // Check adjacent tiles values
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++)
         {
             TILE t1 = get_tile(i, j);
-            if (j < size - 1) {
+            // Check horizontal neighbor tile
+            if (j < size - 1)
+            {
                 TILE t2 = get_tile(i, j + 1);
                 if (!allowed_horizontal(t1, t2))
                     return false;
             }
 
-            if (i < size - 1) {
+            // Check vertical neighbor tile
+            if (i < size - 1)
+            {
                 TILE t2 = get_tile(i + 1, j);
                 if (!allowed_vertical(t1, t2))
                     return false;
