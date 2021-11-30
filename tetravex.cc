@@ -1,5 +1,23 @@
 #include "tetravex.hh"
 
+double rand_zero_to_one()
+{
+    return rand() / (RAND_MAX + 1.);
+}
+
+void Tetravex::copy_movements_to(int *out_arr)
+{
+    std::copy(movements, movements + size * size,
+              out_arr);
+}
+
+void Tetravex::load_movements_from(int *in_arr)
+{
+    std::copy(in_arr, in_arr + size * size,
+              movements);
+}
+
+
 TILE Tetravex::get_tile(int i, int j)
 {
     assert(i * size + j < size * size);
@@ -24,16 +42,18 @@ void Tetravex::set_tile(int pos, TILE tile)
     board[pos] = tile;
 }
 
-void Tetravex::set_movement(int i, int j, int value)
+bool Tetravex::swap_tiles(int pos1, int pos2)
 {
-    assert(i * size + j < size * size);
-    movements[i * size + j] = value;
-}
+    assert(pos1 < size * size && pos2 < size * size);
 
-void Tetravex::set_movement(int pos, int value)
-{
-    assert(pos < size * size);
-    movements[pos] = value;
+    if (pos1 == pos2 ||
+        board[movements[pos1]].fixed ||
+        board[movements[pos2]].fixed)
+        return false;
+
+    std::swap(movements[pos1], movements[pos2]);
+
+    return true;
 }
 
 void Tetravex::draw_simple_board()
@@ -135,7 +155,7 @@ bool Tetravex::load_file(const char* file_path)
     }
 
     std::cerr << "Couldn't open file: " << file_path << std::endl;
-    return 1;
+    return false;
 }
 
 bool allowed_horizontal(TILE t1, TILE t2)
@@ -183,4 +203,75 @@ bool Tetravex::check_board()
         }
     }
     return true;
+}
+
+int Tetravex::get_score()
+{
+    int score = 0;
+
+    // Check adjacent tiles values
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            TILE t1 = get_tile(i, j);
+            // Check horizontal neighbor tile
+            if (j < size - 1)
+            {
+                TILE t2 = get_tile(i, j + 1);
+                if (!allowed_horizontal(t1, t2))
+                    score++;
+            }
+
+            // Check vertical neighbor tile
+            if (i < size - 1)
+            {
+                TILE t2 = get_tile(i + 1, j);
+                if (!allowed_vertical(t1, t2))
+                    score++;
+            }
+        }
+    }
+    return score;
+}
+
+void Tetravex::randomize_board(int nb_random_swaps)
+{
+    if (!nb_random_swaps)
+        nb_random_swaps = size * size * 3;
+    int pos1 = 0;
+    int pos2 = 0;
+
+    for (int i = 0; i < nb_random_swaps; i++)
+    {
+        pos1 = rand() % (size * size);
+        pos2 = rand() % (size * size);
+
+        if (!swap_tiles(pos1, pos2))
+            i--;
+    }
+}
+
+int Tetravex::solve()
+{
+    float T = 15;
+
+    int score = get_score();
+
+    int state[MAX_SIZE * MAX_SIZE];
+    copy_movements_to(state);
+
+    while (score > 0)
+    {
+        randomize_board(1);
+        int new_score = get_score();
+
+        if (exp((score - new_score) / T ) - rand_zero_to_one() > 0)
+            score = new_score;
+        else
+            load_movements_from(state);
+
+        //std::cout << score << std::endl;
+    }
+    return 0;
 }

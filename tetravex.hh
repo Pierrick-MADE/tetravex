@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdlib.h>
 #include <iostream>
 #include <stdio.h>
 #include <fstream>
@@ -24,15 +25,19 @@ class Tetravex {
         int movements[MAX_SIZE * MAX_SIZE];
         int size = 3;
 
+        void set_tile(int i, int j, TILE tile);
+        void set_tile(int pos, TILE tile);
+        void copy_movements_to(int *out_arr);
+        void load_movements_from(int *in_arr);
+
     public:
         // get / set
         TILE get_tile(int i, int j);
         TILE get_tile(int pos);
-        void set_tile(int i, int j, TILE tile);
-        void set_tile(int pos, TILE tile);
 
-        void set_movement(int i, int j, int value);
-        void set_movement(int pos, int value);
+        // moves
+        bool swap_tiles(int pos1, int pos2);
+        void randomize_board(int nb_random_swaps=0);
 
         // utils
         void draw_simple_board();
@@ -43,5 +48,6 @@ class Tetravex {
         bool check_board();
 
         // solver
+        int get_score();
         int solve();
 };
