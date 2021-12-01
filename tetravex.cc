@@ -7,7 +7,7 @@ double rand_zero_to_one()
 
 float Tetravex::find_initial_t()
 {
-    int nb_samples = 10;
+    int nb_samples = 30;
     int scores[nb_samples];
     int total = 0;
     for (int i=0; i<nb_samples; i++)
@@ -17,7 +17,6 @@ float Tetravex::find_initial_t()
         scores[i] = score;
         total += scores[i];
     }
-    std::cout << std::endl;
 
     float pstdev = 0.0;
     float mean = total / nb_samples;
@@ -260,6 +259,33 @@ int Tetravex::get_score()
     return score;
 }
 
+void Tetravex::generate_random_board(int new_size)
+{
+    size = new_size;
+    unsigned char random_row[size * (size + 1)];
+    unsigned char random_col[size * (size + 1)];
+
+    for (int i=0; i < size * (size + 1); i++)
+    {
+        random_row[i] = rand() % 10;
+        random_col[i] = rand() % 10;
+    }
+
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            TILE tile = {n:random_row[i * size + j],
+                         w:random_col[i * size + j],
+                         e:random_col[i * size + (j+1)],
+                         s:random_row[(i+1) * size + j]};
+            set_tile(i, j, tile);
+        }
+    }
+    for (int i = 0; i < size * size; i++)
+        movements[i] = i;
+}
+
 void Tetravex::randomize_board(int nb_random_swaps)
 {
     if (!nb_random_swaps)
@@ -277,26 +303,31 @@ void Tetravex::randomize_board(int nb_random_swaps)
     }
 }
 
-void Tetravex::solve()
+void Tetravex::solve(bool verbose)
 {
+    int initial_state[MAX_SIZE * MAX_SIZE];
+    copy_movements_to(initial_state);
+
     float T = find_initial_t();
-    float decrease_factor = 0.99999;
-    int nb_stuck = 0;
+    float decrease_factor = (size<=3) ? 0.99:
+                            (size<=4) ? 0.999:
+                            (size<=5) ? 0.9999:
+                            0.99999;
     int iteration = 0;
 
+    load_movements_from(initial_state);
     int score = get_score();
 
     while (score > 0)
     {
-        if (iteration % 1000 == 0)
+        if (verbose && iteration % 10000 == 0)
         {
             std::cout << "iteration:" << iteration <<
                          " // T:" << T <<
                          " // score:" << score << std::endl;
         }
 
-        int nb_moves = size*size;
-        int diff_scores_after_moves = 0;
+        int nb_moves = size * size;
 
         for (int i=0; i < nb_moves; i++)
         {
@@ -315,25 +346,16 @@ void Tetravex::solve()
                 return;
 
             if (exp((score - new_score) / T ) > rand_zero_to_one())
-            {
-                diff_scores_after_moves += 1;
                 score = new_score;
-            }
             else
                 swap_tiles(pos1, pos2);
         }
 
         T *= decrease_factor;
 
-        if (diff_scores_after_moves == 0)
-        {
-            nb_stuck += 1;
-            if (T < 0.01)
-            {
-                T = 5;
-                nb_stuck = 0;
-            }
-        }
+        if (T < 0.2)
+            T += rand_zero_to_one() * 2.;
+
         iteration++;
     }
     return;

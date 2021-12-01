@@ -41,6 +41,7 @@ class Tetravex {
         // moves
         bool swap_tiles(int pos1, int pos2);
         void randomize_board(int nb_random_swaps=0);
+        void generate_random_board(int size);
 
         // utils
         void draw_simple_board();
@@ -52,5 +53,5 @@ class Tetravex {
 
         // solver
         int get_score();
-        void solve();
+        void solve(bool verbose=false);
 };
