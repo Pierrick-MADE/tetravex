@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unistd.h>
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
@@ -23,12 +24,14 @@ class Tetravex {
     private:
         TILE board[MAX_SIZE * MAX_SIZE];
         int movements[MAX_SIZE * MAX_SIZE];
-        int size = 3;
+        int size = MAX_SIZE;
 
         void set_tile(int i, int j, TILE tile);
         void set_tile(int pos, TILE tile);
         void copy_movements_to(int *out_arr);
         void load_movements_from(int *in_arr);
+
+        float find_initial_t();
 
     public:
         // get / set
@@ -49,5 +52,5 @@ class Tetravex {
 
         // solver
         int get_score();
-        int solve();
+        void solve();
 };

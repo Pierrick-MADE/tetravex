@@ -5,6 +5,31 @@ double rand_zero_to_one()
     return rand() / (RAND_MAX + 1.);
 }
 
+float Tetravex::find_initial_t()
+{
+    int nb_samples = 10;
+    int scores[nb_samples];
+    int total = 0;
+    for (int i=0; i<nb_samples; i++)
+    {
+        randomize_board();
+        int score = get_score();
+        scores[i] = score;
+        total += scores[i];
+    }
+    std::cout << std::endl;
+
+    float pstdev = 0.0;
+    float mean = total / nb_samples;
+    for (int i=0; i<nb_samples; i++)
+    {
+        pstdev += std::pow(scores[i] - mean, 2);
+    }
+
+    return std::pow(pstdev / nb_samples, 0.5);
+}
+
+
 void Tetravex::copy_movements_to(int *out_arr)
 {
     std::copy(movements, movements + size * size,
@@ -238,7 +263,7 @@ int Tetravex::get_score()
 void Tetravex::randomize_board(int nb_random_swaps)
 {
     if (!nb_random_swaps)
-        nb_random_swaps = size * size * 3;
+        nb_random_swaps = size * size * 5 + rand()%1;
     int pos1 = 0;
     int pos2 = 0;
 
@@ -252,26 +277,64 @@ void Tetravex::randomize_board(int nb_random_swaps)
     }
 }
 
-int Tetravex::solve()
+void Tetravex::solve()
 {
-    float T = 15;
+    float T = find_initial_t();
+    float decrease_factor = 0.99999;
+    int nb_stuck = 0;
+    int iteration = 0;
 
     int score = get_score();
 
-    int state[MAX_SIZE * MAX_SIZE];
-    copy_movements_to(state);
-
     while (score > 0)
     {
-        randomize_board(1);
-        int new_score = get_score();
+        if (iteration % 1000 == 0)
+        {
+            std::cout << "iteration:" << iteration <<
+                         " // T:" << T <<
+                         " // score:" << score << std::endl;
+        }
 
-        if (exp((score - new_score) / T ) - rand_zero_to_one() > 0)
-            score = new_score;
-        else
-            load_movements_from(state);
+        int nb_moves = size*size;
+        int diff_scores_after_moves = 0;
 
-        //std::cout << score << std::endl;
+        for (int i=0; i < nb_moves; i++)
+        {
+            int pos1 = rand() % (size * size);
+            int pos2 = rand() % (size * size);
+
+            if (!swap_tiles(pos1, pos2))
+            {
+                i--;
+                continue;
+            }
+
+            int new_score = get_score();
+
+            if (new_score == 0)
+                return;
+
+            if (exp((score - new_score) / T ) > rand_zero_to_one())
+            {
+                diff_scores_after_moves += 1;
+                score = new_score;
+            }
+            else
+                swap_tiles(pos1, pos2);
+        }
+
+        T *= decrease_factor;
+
+        if (diff_scores_after_moves == 0)
+        {
+            nb_stuck += 1;
+            if (T < 0.01)
+            {
+                T = 5;
+                nb_stuck = 0;
+            }
+        }
+        iteration++;
     }
-    return 0;
+    return;
 }
