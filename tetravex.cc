@@ -1,33 +1,6 @@
 #include "tetravex.hh"
 
-double rand_zero_to_one()
-{
-    return rand() / (RAND_MAX + 1.);
-}
-
-float Tetravex::find_initial_t()
-{
-    int nb_samples = 30;
-    int scores[nb_samples];
-    int total = 0;
-    for (int i=0; i<nb_samples; i++)
-    {
-        randomize_board();
-        int score = get_score();
-        scores[i] = score;
-        total += scores[i];
-    }
-
-    float pstdev = 0.0;
-    float mean = total / nb_samples;
-    for (int i=0; i<nb_samples; i++)
-    {
-        pstdev += std::pow(scores[i] - mean, 2);
-    }
-
-    return std::pow(pstdev / nb_samples, 0.5);
-}
-
+// GET / SET
 
 void Tetravex::copy_movements_to(int *out_arr)
 {
@@ -40,7 +13,6 @@ void Tetravex::load_movements_from(int *in_arr)
     std::copy(in_arr, in_arr + size * size,
               movements);
 }
-
 
 TILE Tetravex::get_tile(int i, int j)
 {
@@ -66,6 +38,8 @@ void Tetravex::set_tile(int pos, TILE tile)
     board[pos] = tile;
 }
 
+// MOVES
+
 bool Tetravex::swap_tiles(int pos1, int pos2)
 {
     assert(pos1 < size * size && pos2 < size * size);
@@ -80,19 +54,73 @@ bool Tetravex::swap_tiles(int pos1, int pos2)
     return true;
 }
 
-void Tetravex::draw_simple_board()
+void Tetravex::generate_random_board(int new_size)
 {
+    size = new_size;
+    unsigned char random_row[size * (size + 1)];
+    unsigned char random_col[size * (size + 1)];
+
+    for (int i=0; i < size * (size + 1); i++)
+    {
+        random_row[i] = rand() % 10;
+        random_col[i] = rand() % 10;
+    }
+
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            TILE tile = {n:random_row[i * size + j],
+                         w:random_col[i * size + j],
+                         e:random_col[i * size + (j+1)],
+                         s:random_row[(i+1) * size + j]};
+            set_tile(i, j, tile);
+        }
+    }
+    for (int i = 0; i < size * size; i++)
+        movements[i] = i;
+}
+
+void Tetravex::randomize_board(int nb_random_swaps)
+{
+    if (!nb_random_swaps)
+        nb_random_swaps = size * size * 5 + rand()%1;
+    int pos1 = 0;
+    int pos2 = 0;
+
+    for (int i = 0; i < nb_random_swaps; i++)
+    {
+        pos1 = rand() % (size * size);
+        pos2 = rand() % (size * size);
+
+        if (!swap_tiles(pos1, pos2))
+            i--;
+    }
+}
+
+// UTILS
+
+bool Tetravex::save_board(const char* file_path)
+{
+    std::ofstream outfile (file_path);
+    if (!outfile.is_open())
+    {
+        std::cerr << "Couldn't open output file: " << file_path << std::endl;
+        return false;
+    }
     for (int i = 0; i < size; i++)
     {
         for (int j = 0; j < size; j++)
         {
             TILE tile = get_tile(i, j);
-            printf("%d%d%d%d", tile.n, tile.e, tile.w, tile.s);
+            outfile << (int)tile.n << (int)tile.e << (int)tile.w << (int)tile.s;
             if (tile.fixed)
-                printf(" @");
-            printf("\n");
+                outfile << " @";
+            outfile << "\n";
         }
     }
+    outfile.close();
+    return true;
 }
 
 void Tetravex::draw_board()
@@ -182,6 +210,8 @@ bool Tetravex::load_file(const char* file_path)
     return false;
 }
 
+// RULES
+
 bool allowed_horizontal(TILE t1, TILE t2)
 {
     return t1.e == t2.w;
@@ -259,48 +289,29 @@ int Tetravex::get_score()
     return score;
 }
 
-void Tetravex::generate_random_board(int new_size)
+// SOLVER
+
+float Tetravex::find_initial_t()
 {
-    size = new_size;
-    unsigned char random_row[size * (size + 1)];
-    unsigned char random_col[size * (size + 1)];
-
-    for (int i=0; i < size * (size + 1); i++)
+    int nb_samples = 30;
+    int scores[nb_samples];
+    int total = 0;
+    for (int i=0; i<nb_samples; i++)
     {
-        random_row[i] = rand() % 10;
-        random_col[i] = rand() % 10;
+        randomize_board();
+        int score = get_score();
+        scores[i] = score;
+        total += scores[i];
     }
 
-    for (int i = 0; i < size; i++)
+    float pstdev = 0.0;
+    float mean = total / nb_samples;
+    for (int i=0; i<nb_samples; i++)
     {
-        for (int j = 0; j < size; j++)
-        {
-            TILE tile = {n:random_row[i * size + j],
-                         w:random_col[i * size + j],
-                         e:random_col[i * size + (j+1)],
-                         s:random_row[(i+1) * size + j]};
-            set_tile(i, j, tile);
-        }
+        pstdev += std::pow(scores[i] - mean, 2);
     }
-    for (int i = 0; i < size * size; i++)
-        movements[i] = i;
-}
 
-void Tetravex::randomize_board(int nb_random_swaps)
-{
-    if (!nb_random_swaps)
-        nb_random_swaps = size * size * 5 + rand()%1;
-    int pos1 = 0;
-    int pos2 = 0;
-
-    for (int i = 0; i < nb_random_swaps; i++)
-    {
-        pos1 = rand() % (size * size);
-        pos2 = rand() % (size * size);
-
-        if (!swap_tiles(pos1, pos2))
-            i--;
-    }
+    return std::pow(pstdev / nb_samples, 0.5);
 }
 
 void Tetravex::solve(bool verbose)
@@ -308,55 +319,64 @@ void Tetravex::solve(bool verbose)
     int initial_state[MAX_SIZE * MAX_SIZE];
     copy_movements_to(initial_state);
 
-    float T = find_initial_t();
-    float decrease_factor = (size<=3) ? 0.99:
-                            (size<=4) ? 0.999:
-                            (size<=5) ? 0.9999:
-                            0.99999;
+    float initial_t = find_initial_t();
+    float T = initial_t;
+    float decrease_factor = (size<=3) ? 0.999:
+                            (size<=4) ? 0.9999:
+                            (size<=5) ? 0.99999:
+                                        0.99999;
     int iteration = 0;
 
     load_movements_from(initial_state);
     int score = get_score();
+    int reset_nb = 0;
 
     while (score > 0)
     {
-        if (verbose && iteration % 10000 == 0)
+        if (verbose && iteration % 100000 == 0)
         {
             std::cout << "iteration:" << iteration <<
                          " // T:" << T <<
                          " // score:" << score << std::endl;
         }
 
-        int nb_moves = size * size;
+        // Select random tiles to swap
+        int pos1 = rand() % (size * size);
+        int pos2 = rand() % (size * size);
 
-        for (int i=0; i < nb_moves; i++)
-        {
-            int pos1 = rand() % (size * size);
-            int pos2 = rand() % (size * size);
+        // Do swap or loop if swap is not possible
+        if (!swap_tiles(pos1, pos2))
+            continue;
 
-            if (!swap_tiles(pos1, pos2))
-            {
-                i--;
-                continue;
-            }
+        int new_score = get_score();
 
-            int new_score = get_score();
+        // end if we found a solution
+        if (new_score == 0)
+            break;
 
-            if (new_score == 0)
-                return;
+        // check if we should keep this move or not
+        if (new_score < score ||
+            (exp(-(new_score - score) / T)) * RAND_MAX >= rand())
+            score = new_score;
+        else
+            swap_tiles(pos1, pos2);
 
-            if (exp((score - new_score) / T ) > rand_zero_to_one())
-                score = new_score;
-            else
-                swap_tiles(pos1, pos2);
-        }
-
+        // Decrease the heat
         T *= decrease_factor;
 
-        if (T < 0.2)
-            T += rand_zero_to_one() * 2.;
+        // Reset the heat if we are at a local minimum
+        if (T < 0.3)
+        {
+            T += 1;
+            reset_nb++;
+        }
 
         iteration++;
+    }
+    if (verbose)
+    {
+        std::cout << "nb iterations: " << iteration << std::endl;
+        std::cout << "reset_nb : " << reset_nb << std::endl;
     }
     return;
 }

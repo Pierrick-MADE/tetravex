@@ -44,7 +44,7 @@ class Tetravex {
         void generate_random_board(int size);
 
         // utils
-        void draw_simple_board();
+        bool save_board(const char* file_path);
         void draw_board();
         bool load_file(const char* file_path);
 
@@ -53,5 +53,5 @@ class Tetravex {
 
         // solver
         int get_score();
-        void solve(bool verbose=false);
+        void solve(bool verbose=true);
 };
