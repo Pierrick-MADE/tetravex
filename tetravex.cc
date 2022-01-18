@@ -114,8 +114,8 @@ bool Tetravex::save_board(const char* file_path)
         {
             TILE tile = get_tile(i, j);
             outfile << (int)tile.n << (int)tile.e << (int)tile.w << (int)tile.s;
-            if (tile.fixed)
-                outfile << " @";
+            //if (tile.fixed)
+            //    outfile << " @";
             outfile << "\n";
         }
     }
@@ -314,26 +314,29 @@ float Tetravex::find_initial_t()
     return std::pow(pstdev / nb_samples, 0.5);
 }
 
-void Tetravex::solve(bool verbose)
+void Tetravex::solve()
 {
     int initial_state[MAX_SIZE * MAX_SIZE];
     copy_movements_to(initial_state);
 
-    float initial_t = find_initial_t();
+    float initial_t = 40; find_initial_t();
     float T = initial_t;
+    int stuck = 0;
     float decrease_factor = (size<=3) ? 0.999:
                             (size<=4) ? 0.9999:
                             (size<=5) ? 0.99999:
-                                        0.99999;
+                                        0.999;
     int iteration = 0;
 
     load_movements_from(initial_state);
     int score = get_score();
     int reset_nb = 0;
 
+    std::ofstream log_file("log_s" + std::to_string(size) + ".txt");
+
     while (score > 0)
     {
-        if (verbose && iteration % 100000 == 0)
+        if (VERBOSE && iteration % 1000 == 0)
         {
             std::cout << "iteration:" << iteration <<
                          " // T:" << T <<
@@ -357,26 +360,50 @@ void Tetravex::solve(bool verbose)
         // check if we should keep this move or not
         if (new_score < score ||
             (exp(-(new_score - score) / T)) * RAND_MAX >= rand())
+        {
             score = new_score;
+            stuck = 0;
+        }
         else
+        {
             swap_tiles(pos1, pos2);
+            stuck += 1;
+        }
+
+        if (LOG_STAT)
+            log_file << std::to_string(T) << ";" << std::to_string(score) << std::endl;
+
 
         // Decrease the heat
-        T *= decrease_factor;
+        if (stuck == 10)
+        {
+            T /= 0.99;
+            stuck = 0;
+        }
+        else
+            T *= decrease_factor;
+
 
         // Reset the heat if we are at a local minimum
-        if (T < 0.3)
+        /*if (T < 0.25)
         {
-            T += 1;
+            T = initial_t;
             reset_nb++;
-        }
+            // TODO Test other methods
+            // T_init = 2
+            // T:2 -> T:0.3 -> T:2 (restart with completly random)
+            // T:2 -> T:0.3 -> T:0.8 (restart with sightly random board)
+            // T:2 -> T:0.3 -> T:0.5 -> T:0.3 -> T:0.8 -> T:0.3 -> T:1 ...
+        }*/
 
         iteration++;
     }
-    if (verbose)
+    if (VERBOSE)
     {
         std::cout << "nb iterations: " << iteration << std::endl;
         std::cout << "reset_nb : " << reset_nb << std::endl;
     }
+    log_file.close();
+
     return;
 }

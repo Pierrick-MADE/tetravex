@@ -12,6 +12,9 @@
 
 #define MAX_SIZE 6
 
+#define LOG_STAT false // true
+#define VERBOSE false // true
+
 struct TILE {
     unsigned char n; // North
     unsigned char w; // West
@@ -53,5 +56,5 @@ class Tetravex {
 
         // solver
         int get_score();
-        void solve(bool verbose=true);
+        void solve();
 };
