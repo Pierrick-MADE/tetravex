@@ -14,25 +14,25 @@ void Tetravex::load_movements_from(int *in_arr)
               movements);
 }
 
-TILE Tetravex::get_tile(int i, int j)
+TILE& Tetravex::get_tile(int i, int j)
 {
     assert(i * size + j < size * size);
     return board[movements[i * size + j]];
 }
 
-TILE Tetravex::get_tile(int pos)
+TILE& Tetravex::get_tile(int pos)
 {
     assert(pos < size * size);
     return board[movements[pos]];
 }
 
-void Tetravex::set_tile(int i, int j, TILE tile)
+void Tetravex::set_tile(int i, int j, TILE& tile)
 {
     assert(i * size + j < size * size);
     board[i * size + j] = tile;
 }
 
-void Tetravex::set_tile(int pos, TILE tile)
+void Tetravex::set_tile(int pos, TILE& tile)
 {
     assert(pos < size * size);
     board[pos] = tile;
@@ -112,7 +112,7 @@ bool Tetravex::save_board(const char* file_path)
     {
         for (int j = 0; j < size; j++)
         {
-            TILE tile = get_tile(i, j);
+            TILE& tile = get_tile(i, j);
             outfile << (int)tile.n << (int)tile.e << (int)tile.w << (int)tile.s;
             //if (tile.fixed)
             //    outfile << " @";
@@ -134,7 +134,7 @@ void Tetravex::draw_board()
         printf("|");
         for (int j = 0; j < size; j++)
         {
-            TILE tile = get_tile(i, j);
+            TILE& tile = get_tile(i, j);
             printf("  %d  |", tile.n);
         }
         printf("\n");
@@ -142,7 +142,7 @@ void Tetravex::draw_board()
         printf("|");
         for (int j = 0; j < size; j++)
         {
-            TILE tile = get_tile(i, j);
+            TILE& tile = get_tile(i, j);
             printf(" %d %d |", tile.w, tile.e);
         }
         printf("\n");
@@ -150,7 +150,7 @@ void Tetravex::draw_board()
         printf("|");
         for (int j = 0; j < size; j++)
         {
-            TILE tile = get_tile(i, j);
+            TILE& tile = get_tile(i, j);
             printf("  %d  |", tile.s);
         }
         printf("\n");
@@ -212,12 +212,12 @@ bool Tetravex::load_file(const char* file_path)
 
 // RULES
 
-bool allowed_horizontal(TILE t1, TILE t2)
+bool allowed_horizontal(TILE& t1, TILE& t2)
 {
     return t1.e == t2.w;
 }
 
-bool allowed_vertical(TILE t1, TILE t2)
+bool allowed_vertical(TILE& t1, TILE& t2)
 {
     return t1.s == t2.n;
 }
@@ -238,11 +238,11 @@ bool Tetravex::check_board()
     {
         for (int j = 0; j < size; j++)
         {
-            TILE t1 = get_tile(i, j);
+            TILE& t1 = get_tile(i, j);
             // Check horizontal neighbor tile
             if (j < size - 1)
             {
-                TILE t2 = get_tile(i, j + 1);
+                TILE& t2 = get_tile(i, j + 1);
                 if (!allowed_horizontal(t1, t2))
                     return false;
             }
@@ -250,7 +250,7 @@ bool Tetravex::check_board()
             // Check vertical neighbor tile
             if (i < size - 1)
             {
-                TILE t2 = get_tile(i + 1, j);
+                TILE& t2 = get_tile(i + 1, j);
                 if (!allowed_vertical(t1, t2))
                     return false;
             }
@@ -268,11 +268,11 @@ int Tetravex::get_score()
     {
         for (int j = 0; j < size; j++)
         {
-            TILE t1 = get_tile(i, j);
+            TILE& t1 = get_tile(i, j);
             // Check horizontal neighbor tile
             if (j < size - 1)
             {
-                TILE t2 = get_tile(i, j + 1);
+                TILE& t2 = get_tile(i, j + 1);
                 if (!allowed_horizontal(t1, t2))
                     score++;
             }
@@ -280,7 +280,7 @@ int Tetravex::get_score()
             // Check vertical neighbor tile
             if (i < size - 1)
             {
-                TILE t2 = get_tile(i + 1, j);
+                TILE& t2 = get_tile(i + 1, j);
                 if (!allowed_vertical(t1, t2))
                     score++;
             }
@@ -319,18 +319,20 @@ void Tetravex::solve()
     int initial_state[MAX_SIZE * MAX_SIZE];
     copy_movements_to(initial_state);
 
-    float initial_t = 40; find_initial_t();
+    float initial_t = find_initial_t();
     float T = initial_t;
-    int stuck = 0;
     float decrease_factor = (size<=3) ? 0.999:
                             (size<=4) ? 0.9999:
                             (size<=5) ? 0.99999:
                                         0.999;
-    int iteration = 0;
+
+    bool use_cooling = (size <= 5) ? false: true;
+    int stuck = 0;
 
     load_movements_from(initial_state);
     int score = get_score();
     int reset_nb = 0;
+    int iteration = 0;
 
     std::ofstream log_file("log_s" + std::to_string(size) + ".txt");
 
@@ -374,27 +376,39 @@ void Tetravex::solve()
             log_file << std::to_string(T) << ";" << std::to_string(score) << std::endl;
 
 
-        // Decrease the heat
-        if (stuck == 10)
+        // Cooling method :
+        if (use_cooling)
         {
-            T /= 0.99;
-            stuck = 0;
+            // Increase the heat
+            if (stuck == 10)
+            {
+                T /= 0.99;
+                stuck = 0;
+            }
+            // Decrease the heat
+            else
+                T *= decrease_factor;
         }
+
+        // Reset Heat method :
         else
+        {
+            // Decrease the heat
             T *= decrease_factor;
 
+            // Reset the heat if we are at a local minimum
+            if (T < 0.25)
+            {
+                T = initial_t;
+                reset_nb++;
+                // TODO Test other methods
+                // T_init = 2
+                // T:2 -> T:0.3 -> T:2 (restart with completly random)
+                // T:2 -> T:0.3 -> T:0.8 (restart with sightly random board)
+                // T:2 -> T:0.3 -> T:0.5 -> T:0.3 -> T:0.8 -> T:0.3 -> T:1 ...
+            }
+        }
 
-        // Reset the heat if we are at a local minimum
-        /*if (T < 0.25)
-        {
-            T = initial_t;
-            reset_nb++;
-            // TODO Test other methods
-            // T_init = 2
-            // T:2 -> T:0.3 -> T:2 (restart with completly random)
-            // T:2 -> T:0.3 -> T:0.8 (restart with sightly random board)
-            // T:2 -> T:0.3 -> T:0.5 -> T:0.3 -> T:0.8 -> T:0.3 -> T:1 ...
-        }*/
 
         iteration++;
     }

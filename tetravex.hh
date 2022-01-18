@@ -29,8 +29,8 @@ class Tetravex {
         int movements[MAX_SIZE * MAX_SIZE];
         int size = MAX_SIZE;
 
-        void set_tile(int i, int j, TILE tile);
-        void set_tile(int pos, TILE tile);
+        void set_tile(int i, int j, TILE& tile);
+        void set_tile(int pos, TILE& tile);
         void copy_movements_to(int *out_arr);
         void load_movements_from(int *in_arr);
 
@@ -38,8 +38,8 @@ class Tetravex {
 
     public:
         // get / set
-        TILE get_tile(int i, int j);
-        TILE get_tile(int pos);
+        TILE& get_tile(int i, int j);
+        TILE& get_tile(int pos);
 
         // moves
         bool swap_tiles(int pos1, int pos2);
