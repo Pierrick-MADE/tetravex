@@ -12,8 +12,8 @@
 
 #define MAX_SIZE 6
 
-#define LOG_STAT false // true
-#define VERBOSE false // true
+#define LOG_STAT false
+#define VERBOSE false
 
 struct TILE {
     unsigned char n; // North
@@ -37,6 +37,8 @@ class Tetravex {
         float find_initial_t();
 
     public:
+        int nb_iterations;
+
         // get / set
         TILE& get_tile(int i, int j);
         TILE& get_tile(int pos);

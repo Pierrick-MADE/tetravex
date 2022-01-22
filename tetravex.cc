@@ -316,31 +316,39 @@ float Tetravex::find_initial_t()
 
 void Tetravex::solve()
 {
+    // Keep initial state in memory
     int initial_state[MAX_SIZE * MAX_SIZE];
     copy_movements_to(initial_state);
 
+    // HEAT parameters
     float initial_t = find_initial_t();
     float T = initial_t;
-    float decrease_factor = (size<=3) ? 0.999:
-                            (size<=4) ? 0.9999:
-                            (size<=5) ? 0.99999:
+    float decrease_factor = (size<=2) ? 0.999:
+                            (size<=3) ? 0.99:
+                            (size<=4) ? 0.999:
+                            (size<=5) ? 0.99:
+                                        0.9999;
+
+    // use geometric reheating method for size >= 5
+    bool use_geometric_reheating = size >= 5;
+    float heat_factor =     (size<=5) ? 0.9:
                                         0.999;
+    int stuck_counter = 0;
 
-    bool use_cooling = (size <= 5) ? false: true;
-    int stuck = 0;
-
+    // Reset board / score / iteration to initial state
     load_movements_from(initial_state);
     int score = get_score();
-    int reset_nb = 0;
-    int iteration = 0;
+    nb_iterations = 0;
 
+    // Prepare log file
     std::ofstream log_file("log_s" + std::to_string(size) + ".txt");
 
+    // Repeat until solution found
     while (score > 0)
     {
-        if (VERBOSE && iteration % 1000 == 0)
+        if (VERBOSE && nb_iterations % 1000 == 0)
         {
-            std::cout << "iteration:" << iteration <<
+            std::cout << "iteration:" << nb_iterations <<
                          " // T:" << T <<
                          " // score:" << score << std::endl;
         }
@@ -362,32 +370,36 @@ void Tetravex::solve()
         // check if we should keep this move or not
         if (new_score < score ||
             (exp(-(new_score - score) / T)) * RAND_MAX >= rand())
-        {
+        {   // accept the move
             score = new_score;
-            stuck = 0;
+            stuck_counter = 0;
         }
         else
-        {
+        {   // reject the move
             swap_tiles(pos1, pos2);
-            stuck += 1;
+            stuck_counter += 1;
         }
 
         if (LOG_STAT)
             log_file << std::to_string(T) << ";" << std::to_string(score) << std::endl;
 
 
-        // Cooling method :
-        if (use_cooling)
+        // Geometric reheating method :
+        if (use_geometric_reheating)
         {
             // Increase the heat
-            if (stuck == 10)
+            if (stuck_counter == 10)
             {
-                T /= 0.99;
-                stuck = 0;
+                T /= heat_factor;
+                stuck_counter = 0;
             }
             // Decrease the heat
             else
                 T *= decrease_factor;
+
+            // Avoid convergence to zero if blocked without 'stuck'
+            if (T < 0.01)
+                T = initial_t;
         }
 
         // Reset Heat method :
@@ -397,10 +409,9 @@ void Tetravex::solve()
             T *= decrease_factor;
 
             // Reset the heat if we are at a local minimum
-            if (T < 0.25)
+            if (T < 0.15)
             {
                 T = initial_t;
-                reset_nb++;
                 // TODO Test other methods
                 // T_init = 2
                 // T:2 -> T:0.3 -> T:2 (restart with completly random)
@@ -408,14 +419,7 @@ void Tetravex::solve()
                 // T:2 -> T:0.3 -> T:0.5 -> T:0.3 -> T:0.8 -> T:0.3 -> T:1 ...
             }
         }
-
-
-        iteration++;
-    }
-    if (VERBOSE)
-    {
-        std::cout << "nb iterations: " << iteration << std::endl;
-        std::cout << "reset_nb : " << reset_nb << std::endl;
+        nb_iterations++;
     }
     log_file.close();
 
